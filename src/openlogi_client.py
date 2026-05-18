@@ -34,24 +34,30 @@ def _get(path: str, params: dict | None = None) -> dict:
 def get_inventory() -> dict[str, int]:
     """
     SKUをキーにした在庫数辞書を返す。
-
-    OPENLOGIのAPIレスポンス構造に合わせて適宜調整してください。
-    APIが利用できない場合は空辞書を返します（フォールバック）。
+    OPENLOGI API: GET /items?stock=1
     """
     try:
-        params = {}
+        params: dict = {"stock": 1, "per_page": 100}
         if config.OPENLOGI_WAREHOUSE_ID:
             params["warehouse_id"] = config.OPENLOGI_WAREHOUSE_ID
 
-        data = _get("inventories", params)
         inventory: dict[str, int] = {}
-
-        items = data.get("inventories", data.get("items", data.get("data", [])))
-        for item in items:
-            sku = (item.get("sku") or item.get("code") or "").strip()
-            qty = int(item.get("quantity", item.get("stock", 0)) or 0)
-            if sku:
-                inventory[sku] = inventory.get(sku, 0) + qty
+        page = 1
+        while True:
+            params["page"] = page
+            data = _get("items", params)
+            items = data.get("items", data.get("data", []))
+            if not items:
+                break
+            for item in items:
+                sku = (item.get("code") or item.get("sku") or "").strip()
+                stock_info = item.get("stock", {}) or {}
+                qty = int(stock_info.get("quantity", 0) or 0)
+                if sku:
+                    inventory[sku] = inventory.get(sku, 0) + qty
+            if len(items) < params["per_page"]:
+                break
+            page += 1
 
         logger.info("OPENLOGI在庫取得: %d SKU", len(inventory))
         return inventory
