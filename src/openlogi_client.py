@@ -43,7 +43,8 @@ def get_inventory() -> dict[str, int]:
 
         inventory: dict[str, int] = {}
         page = 1
-        while True:
+        max_pages = 20
+        while page <= max_pages:
             params["page"] = page
             data = _get("items", params)
             items = data.get("items", data.get("data", []))
@@ -55,7 +56,8 @@ def get_inventory() -> dict[str, int]:
                 qty = int(stock_info.get("quantity", 0) or 0)
                 if sku:
                     inventory[sku] = inventory.get(sku, 0) + qty
-            if len(items) < params["per_page"]:
+            total_pages = data.get("last_page", data.get("total_pages", page))
+            if page >= total_pages or len(items) < params["per_page"]:
                 break
             page += 1
 
