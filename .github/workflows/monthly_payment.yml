@@ -2,8 +2,8 @@ name: 月次支払集計
 
 on:
   schedule:
-    # 毎月1日9時 JST = 毎月1日 0時 UTC
-    - cron: '0 0 1 * *'
+    # 毎月10日9時 JST = 毎月10日 0時 UTC
+    - cron: '0 0 10 * *'
   workflow_dispatch:
 
 jobs:
