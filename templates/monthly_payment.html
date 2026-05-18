@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>Venica 月次支払集計</title>
+<style>
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif; background:#f5f5f5; margin:0; padding:20px; color:#333; }
+  .container { max-width:720px; margin:0 auto; background:#fff; border-radius:8px; overflow:hidden; box-shadow:0 2px 8px rgba(0,0,0,0.08); }
+  .header { background:#1a1a1a; color:#fff; padding:24px 32px; }
+  .header h1 { margin:0; font-size:20px; font-weight:600; }
+  .header .date { color:#aaa; font-size:13px; margin-top:4px; }
+  .section { padding:24px 32px; border-bottom:1px solid #eee; }
+  .section-title { font-size:13px; font-weight:700; color:#999; text-transform:uppercase; letter-spacing:0.08em; margin:0 0 16px 0; }
+  .total-card { background:#1a1a1a; color:#fff; border-radius:8px; padding:24px; text-align:center; }
+  .total-label { font-size:13px; color:#aaa; margin-bottom:8px; }
+  .total-value { font-size:40px; font-weight:700; }
+  .total-sub   { font-size:13px; color:#aaa; margin-top:8px; }
+  table { width:100%; border-collapse:collapse; font-size:13px; }
+  th { background:#f5f5f5; padding:10px 12px; text-align:left; font-weight:600; font-size:12px; color:#555; border-bottom:2px solid #e5e5e5; }
+  td { padding:10px 12px; border-bottom:1px solid #f0f0f0; vertical-align:top; }
+  .cat-row td { font-weight:600; background:#fafafa; }
+  .detail-row td { font-size:12px; color:#555; padding-left:24px; }
+  .amount { text-align:right; font-variant-numeric: tabular-nums; }
+  .tax-badge { display:inline-block; padding:1px 6px; border-radius:4px; font-size:10px; background:#f3f4f6; color:#555; }
+  .bar-wrap { background:#eee; border-radius:4px; height:6px; margin-top:6px; }
+  .bar-fill  { background:#1a1a1a; border-radius:4px; height:6px; }
+  .error-box { background:#fff1f2; border-left:3px solid #dc2626; border-radius:0 6px 6px 0; padding:12px 16px; margin-bottom:8px; font-size:12px; }
+  .footer { background:#f9f9f9; padding:16px 32px; font-size:11px; color:#aaa; text-align:center; }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <div class="header">
+    <h1>Venica — 月次支払集計</h1>
+    <div class="date">対象月: {{ year_month }} ／ 生成: {{ generated_at }}</div>
+  </div>
+
+  <!-- 合計 -->
+  <div class="section">
+    <div class="total-card">
+      <div class="total-label">{{ year_month }} 支払合計</div>
+      <div class="total-value">¥{{ "{:,}".format(total_amount) }}</div>
+      <div class="total-sub">請求書 {{ invoice_count }}件処理（PDF {{ pdf_count }}件中）{% if error_count > 0 %}／ ⚠ 解析失敗 {{ error_count }}件{% endif %}</div>
+    </div>
+  </div>
+
+  <!-- カテゴリ別集計 -->
+  <div class="section">
+    <div class="section-title">費目別集計</div>
+    <table>
+      <tr>
+        <th>費目</th>
+        <th class="amount">金額</th>
+        <th class="amount">構成比</th>
+      </tr>
+      {% for cat, amount in sorted_categories %}
+      {% set pct = (amount / total_amount * 100) if total_amount > 0 else 0 %}
+      <tr class="cat-row">
+        <td>
+          {{ cat }}
+          <div class="bar-wrap"><div class="bar-fill" style="width:{{ pct|round(1) }}%"></div></div>
+        </td>
+        <td class="amount">¥{{ "{:,}".format(amount) }}</td>
+        <td class="amount" style="color:#888">{{ "{:.1f}".format(pct) }}%</td>
+      </tr>
+      {% for inv in category_items.get(cat, []) %}
+      <tr class="detail-row">
+        <td>{{ inv.vendor or inv.file_name }}</td>
+        <td class="amount">¥{{ "{:,}".format(inv.amount) }}</td>
+        <td class="amount"><span class="tax-badge">{{ inv.tax_type }}</span></td>
+      </tr>
+      {% endfor %}
+      {% else %}
+      <tr><td colspan="3" style="text-align:center;color:#aaa">データなし</td></tr>
+      {% endfor %}
+    </table>
+  </div>
+
+  <!-- 解析エラー -->
+  {% if errors %}
+  <div class="section">
+    <div class="section-title">解析失敗ファイル（要手動確認）</div>
+    {% for e in errors %}
+    <div class="error-box">
+      <strong>{{ e.file_name }}</strong><br>
+      {{ e.error }}
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <div class="footer">
+    Venica Report System — 自動生成 {{ generated_at }}
+  </div>
+</div>
+</body>
+</html>

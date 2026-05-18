@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Venica 日次経営レポート</title>
+<style>
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif; background:#f5f5f5; margin:0; padding:20px; color:#333; }
+  .container { max-width:800px; margin:0 auto; background:#fff; border-radius:8px; overflow:hidden; box-shadow:0 2px 8px rgba(0,0,0,0.08); }
+  .header { background:#1a1a1a; color:#fff; padding:24px 32px; }
+  .header h1 { margin:0; font-size:20px; font-weight:600; letter-spacing:0.05em; }
+  .header .date { color:#aaa; font-size:13px; margin-top:4px; }
+  .section { padding:24px 32px; border-bottom:1px solid #eee; }
+  .section:last-child { border-bottom:none; }
+  .section-title { font-size:13px; font-weight:700; color:#999; text-transform:uppercase; letter-spacing:0.08em; margin:0 0 16px 0; }
+  .kpi-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:16px; }
+  .kpi-card { background:#f9f9f9; border-radius:6px; padding:16px; }
+  .kpi-label { font-size:11px; color:#888; margin-bottom:4px; }
+  .kpi-value { font-size:24px; font-weight:700; color:#1a1a1a; }
+  .kpi-sub { font-size:12px; margin-top:4px; }
+  .up { color:#16a34a; } .down { color:#dc2626; } .neutral { color:#888; }
+  .progress-bar { background:#eee; border-radius:4px; height:8px; margin-top:8px; }
+  .progress-fill { background:#1a1a1a; border-radius:4px; height:8px; }
+  table { width:100%; border-collapse:collapse; font-size:13px; }
+  th { background:#f5f5f5; padding:10px 12px; text-align:left; font-weight:600; font-size:12px; color:#555; border-bottom:2px solid #e5e5e5; }
+  td { padding:10px 12px; border-bottom:1px solid #f0f0f0; }
+  tr:last-child td { border-bottom:none; }
+  .rank { font-weight:700; color:#888; font-size:12px; }
+  .alert-box { border-radius:6px; padding:12px 16px; margin-bottom:8px; }
+  .alert-critical { background:#fff1f2; border-left:3px solid #dc2626; }
+  .alert-warning  { background:#fffbeb; border-left:3px solid #f59e0b; }
+  .alert-info     { background:#eff6ff; border-left:3px solid #3b82f6; }
+  .alert-title { font-weight:700; font-size:13px; margin-bottom:4px; }
+  .alert-body  { font-size:12px; color:#555; }
+  .ai-comment { background:#f0fdf4; border-left:3px solid #16a34a; border-radius:0 6px 6px 0; padding:16px; font-size:13px; line-height:1.8; white-space:pre-wrap; }
+  .badge { display:inline-block; padding:2px 8px; border-radius:12px; font-size:11px; font-weight:600; }
+  .badge-green { background:#dcfce7; color:#16a34a; }
+  .badge-red   { background:#fee2e2; color:#dc2626; }
+  .badge-gray  { background:#f3f4f6; color:#6b7280; }
+  .footer { background:#f9f9f9; padding:16px 32px; font-size:11px; color:#aaa; text-align:center; }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <!-- ヘッダー -->
+  <div class="header">
+    <h1>Venica — 日次経営レポート</h1>
+    <div class="date">対象日: {{ report_date }} ／ 生成: {{ generated_at }}</div>
+  </div>
+
+  <!-- AIコメント -->
+  <div class="section">
+    <div class="section-title">AI 経営サマリー</div>
+    <div class="ai-comment">{{ ai_comment }}</div>
+  </div>
+
+  <!-- 売上KPI -->
+  <div class="section">
+    <div class="section-title">昨日の実績</div>
+    <div class="kpi-grid">
+
+      <div class="kpi-card">
+        <div class="kpi-label">売上</div>
+        <div class="kpi-value">¥{{ "{:,}".format(yesterday_revenue) }}</div>
+        <div class="kpi-sub {% if revenue_change_pct > 0 %}up{% elif revenue_change_pct < 0 %}down{% else %}neutral{% endif %}">
+          前日比 {{ "{:+.1f}".format(revenue_change_pct) }}%
+        </div>
+      </div>
+
+      <div class="kpi-card">
+        <div class="kpi-label">注文件数 / 購入者数</div>
+        <div class="kpi-value">{{ order_count }}件</div>
+        <div class="kpi-sub neutral">購入者 {{ buyer_count }}人</div>
+      </div>
+
+      <div class="kpi-card">
+        <div class="kpi-label">平均注文単価</div>
+        <div class="kpi-value">¥{{ "{:,}".format(avg_order_value) }}</div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- 月次累計 -->
+  <div class="section">
+    <div class="section-title">月次累計</div>
+    <div class="kpi-grid">
+
+      <div class="kpi-card">
+        <div class="kpi-label">月次売上累計</div>
+        <div class="kpi-value">¥{{ "{:,}".format(mtd_revenue) }}</div>
+        <div class="kpi-sub neutral">{{ mtd_order_count }}件</div>
+      </div>
+
+      <div class="kpi-card">
+        <div class="kpi-label">月次目標</div>
+        <div class="kpi-value">¥{{ "{:,}".format(sales_target) if sales_target > 0 else "未設定" }}</div>
+        {% if sales_target > 0 %}
+        <div class="kpi-sub {% if target_pct >= 100 %}up{% elif target_pct >= 70 %}neutral{% else %}down{% endif %}">
+          目標比 {{ "{:.1f}".format(target_pct) }}%
+        </div>
+        <div class="progress-bar">
+          <div class="progress-fill" style="width:{{ [target_pct, 100]|min }}%"></div>
+        </div>
+        {% endif %}
+      </div>
+
+    </div>
+  </div>
+
+  <!-- 売れ筋TOP10 -->
+  <div class="section">
+    <div class="section-title">売れ筋TOP10（直近30日）</div>
+    <table>
+      <tr>
+        <th>#</th><th>商品名 / SKU</th>
+        <th style="text-align:right">7日</th>
+        <th style="text-align:right">14日</th>
+        <th style="text-align:right">30日</th>
+      </tr>
+      {% for item in top10 %}
+      <tr>
+        <td class="rank">{{ loop.index }}</td>
+        <td>
+          {% if item.product_name %}{{ item.product_name }}<br><span style="color:#aaa;font-size:11px">{{ item.sku }}</span>
+          {% else %}{{ item.sku }}{% endif %}
+        </td>
+        <td style="text-align:right">{{ item.qty_7d }}</td>
+        <td style="text-align:right">{{ item.qty_14d }}</td>
+        <td style="text-align:right"><strong>{{ item.qty_30d }}</strong></td>
+      </tr>
+      {% else %}
+      <tr><td colspan="5" style="color:#aaa;text-align:center">データなし</td></tr>
+      {% endfor %}
+    </table>
+  </div>
+
+  <!-- カテゴリ別売上 -->
+  <div class="section">
+    <div class="section-title">カテゴリ別売上（月次累計）</div>
+    <table>
+      <tr><th>カテゴリ</th><th style="text-align:right">売上</th></tr>
+      {% for cat, rev in category_revenue %}
+      <tr>
+        <td>{{ cat }}</td>
+        <td style="text-align:right">¥{{ "{:,}".format(rev) }}</td>
+      </tr>
+      {% else %}
+      <tr><td colspan="2" style="color:#aaa;text-align:center">データなし</td></tr>
+      {% endfor %}
+    </table>
+  </div>
+
+  <!-- 在庫サマリー -->
+  <div class="section">
+    <div class="section-title">在庫サマリー（OPENLOGI基準）</div>
+    <table>
+      <tr>
+        <th>SKU / 商品名</th>
+        <th style="text-align:right">OPENLOGI在庫</th>
+        <th style="text-align:right">調整値</th>
+        <th style="text-align:right">実販売可能</th>
+        <th style="text-align:right">Shopify在庫</th>
+      </tr>
+      {% for inv in inventory_table[:20] %}
+      <tr>
+        <td>
+          {% if inv.product_name %}{{ inv.product_name }}<br><span style="color:#aaa;font-size:11px">{{ inv.sku }}</span>
+          {% else %}{{ inv.sku }}{% endif %}
+        </td>
+        <td style="text-align:right">{{ inv.openlogi_stock }}</td>
+        <td style="text-align:right;color:#f59e0b">{% if inv.total_adjustment > 0 %}-{{ inv.total_adjustment }}{% else %}—{% endif %}</td>
+        <td style="text-align:right">
+          <strong {% if inv.available_stock <= 3 %}style="color:#dc2626"{% endif %}>{{ inv.available_stock }}</strong>
+        </td>
+        <td style="text-align:right;color:#888">{{ inv.shopify_stock }}</td>
+      </tr>
+      {% else %}
+      <tr><td colspan="5" style="color:#aaa;text-align:center">データなし</td></tr>
+      {% endfor %}
+    </table>
+    <div style="font-size:11px;color:#aaa;margin-top:8px">
+      ※ 実販売可能 = OPENLOGI在庫 - (POPUP引当＋撮影貸出＋PR貸出＋卸引当＋不良＋返品確認中＋社内確保)
+    </div>
+  </div>
+
+  <!-- アラート -->
+  <div class="section">
+    <div class="section-title">在庫アラート</div>
+
+    {% if not stockout_risk and not large_diff %}
+    <div class="alert-box alert-info">
+      <div class="alert-title">✓ 重大アラートなし</div>
+      <div class="alert-body">欠品リスク・在庫差異ともに閾値以内です。</div>
+    </div>
+    {% endif %}
+
+    {% for item in stockout_risk %}
+    <div class="alert-box alert-critical">
+      <div class="alert-title">⚠ 欠品リスク: {{ item.product_name or item.sku }}</div>
+      <div class="alert-body">
+        実販売可能: <strong>{{ item.available_stock }}点</strong>
+        {% if item.days_of_stock > 0 %} / 推定残日数: <strong>{{ item.days_of_stock }}日</strong>{% endif %}
+        {% if item.note %} / {{ item.note }}{% endif %}
+      </div>
+    </div>
+    {% endfor %}
+
+    {% for item in large_diff %}
+    <div class="alert-box alert-warning">
+      <div class="alert-title">△ 在庫差異: {{ item.product_name or item.sku }}</div>
+      <div class="alert-body">
+        OPENLOGI: {{ item.openlogi_stock }}点 / Shopify: {{ item.shopify_stock }}点
+        （差異: {{ item.diff }}点 / {{ item.diff_pct }}%）
+      </div>
+    </div>
+    {% endfor %}
+
+    {% if stagnant %}
+    <div class="alert-box alert-info">
+      <div class="alert-title">ℹ 滞留在庫: {{ stagnant|length }}SKU</div>
+      <div class="alert-body">
+        {% for item in stagnant[:5] %}{{ item.product_name or item.sku }}（{{ item.available_stock }}点）{% if not loop.last %}、{% endif %}{% endfor %}
+        {% if stagnant|length > 5 %} 他{% endif %}
+      </div>
+    </div>
+    {% endif %}
+  </div>
+
+  <div class="footer">
+    Venica Report System — 自動生成 {{ generated_at }}
+  </div>
+</div>
+</body>
+</html>

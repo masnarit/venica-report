@@ -1,0 +1,9 @@
+sku,product_name,popup_reserved,photo_loan,pr_loan,wholesale_reserved,defective,return_checking,internal_reserved,note,updated_at
+VEN-TOP-001-BLK-S,トップス A / BLACK / S,5,2,1,0,0,1,0,渋谷POPUP引当5点,2026-05-01
+VEN-TOP-001-BLK-M,トップス A / BLACK / M,5,0,1,0,1,0,0,渋谷POPUP引当5点・不良1点返送中,2026-05-01
+VEN-TOP-001-BLK-L,トップス A / BLACK / L,3,0,0,0,0,0,1,社長サンプル確保,2026-05-01
+VEN-TOP-001-WHT-S,トップス A / WHITE / S,0,3,0,0,0,0,0,撮影サンプル貸出,2026-05-10
+VEN-TOP-001-WHT-M,トップス A / WHITE / M,0,1,2,0,0,0,0,PR貸出2点（インフルエンサー）,2026-05-08
+VEN-BOT-002-BLK-S,パンツ B / BLACK / S,0,0,0,10,0,0,0,セレクトショップ卸引当,2026-04-28
+VEN-BOT-002-BLK-M,パンツ B / BLACK / M,0,0,0,10,0,2,0,卸引当・返品確認中2点,2026-04-28
+VEN-OUT-003-BEG-F,アウター C / BEIGE / F,2,1,0,0,0,0,2,展示会引当・社内確保,2026-05-05

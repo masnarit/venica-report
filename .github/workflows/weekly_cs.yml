@@ -1,0 +1,36 @@
+name: 週次CSレビュー
+
+on:
+  schedule:
+    # 毎週月曜9時 JST = 日曜 0時 UTC
+    - cron: '0 0 * * 1'
+  workflow_dispatch:
+
+jobs:
+  cs-review:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Python セットアップ
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: 依存ライブラリインストール
+        run: pip install -r requirements.txt
+
+      - name: 週次CSレビュー実行
+        env:
+          SHOPIFY_SHOP_DOMAIN:               ${{ secrets.SHOPIFY_SHOP_DOMAIN }}
+          SHOPIFY_ACCESS_TOKEN:              ${{ secrets.SHOPIFY_ACCESS_TOKEN }}
+          OPENLOGI_API_KEY:                  ${{ secrets.OPENLOGI_API_KEY }}
+          GOOGLE_SERVICE_ACCOUNT_JSON_B64:   ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON_B64 }}
+          GOOGLE_SPREADSHEET_ID:             ${{ secrets.GOOGLE_SPREADSHEET_ID }}
+          GMAIL_SENDER:                      ${{ secrets.GMAIL_SENDER }}
+          GMAIL_RECIPIENTS:                  ${{ secrets.GMAIL_RECIPIENTS }}
+          TIMEZONE:                          Asia/Tokyo
+        run: python src/weekly_cs.py

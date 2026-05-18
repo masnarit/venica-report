@@ -1,0 +1,49 @@
+name: 日次経営レポート
+
+on:
+  schedule:
+    # 毎朝9時 JST = 0時 UTC
+    - cron: '0 0 * * *'
+  workflow_dispatch:
+    # 手動実行ボタン（テスト用）
+
+jobs:
+  report:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Python セットアップ
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: 依存ライブラリインストール
+        run: pip install -r requirements.txt
+
+      - name: 日次レポート実行
+        env:
+          SHOPIFY_SHOP_DOMAIN:               ${{ secrets.SHOPIFY_SHOP_DOMAIN }}
+          SHOPIFY_ACCESS_TOKEN:              ${{ secrets.SHOPIFY_ACCESS_TOKEN }}
+          OPENLOGI_API_KEY:                  ${{ secrets.OPENLOGI_API_KEY }}
+          OPENLOGI_WAREHOUSE_ID:             ${{ secrets.OPENLOGI_WAREHOUSE_ID }}
+          GOOGLE_SERVICE_ACCOUNT_JSON_B64:   ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON_B64 }}
+          GOOGLE_SPREADSHEET_ID:             ${{ secrets.GOOGLE_SPREADSHEET_ID }}
+          GMAIL_SENDER:                      ${{ secrets.GMAIL_SENDER }}
+          GMAIL_RECIPIENTS:                  ${{ secrets.GMAIL_RECIPIENTS }}
+          ANTHROPIC_API_KEY:                 ${{ secrets.ANTHROPIC_API_KEY }}
+          STOCK_ALERT_DAYS:                  ${{ vars.STOCK_ALERT_DAYS || '3' }}
+          STAGNANT_STOCK_DAYS:               ${{ vars.STAGNANT_STOCK_DAYS || '30' }}
+          STOCK_DIFF_THRESHOLD:              ${{ vars.STOCK_DIFF_THRESHOLD || '10' }}
+          TIMEZONE:                          Asia/Tokyo
+        run: python src/daily_report.py
+
+      - name: 失敗時の通知
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            core.setFailed('日次レポートが失敗しました。GitHub ActionsのログとGoogle Sheetsのreport_logシートを確認してください。')

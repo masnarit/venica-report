@@ -1,0 +1,39 @@
+name: 月次支払集計
+
+on:
+  schedule:
+    # 毎月1日9時 JST = 毎月1日 0時 UTC
+    - cron: '0 0 1 * *'
+  workflow_dispatch:
+
+jobs:
+  payment-summary:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Python セットアップ
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: 依存ライブラリインストール
+        run: |
+          pip install -r requirements.txt
+          pip install pdfplumber
+
+      - name: 月次支払集計実行
+        env:
+          GOOGLE_SERVICE_ACCOUNT_JSON_B64:   ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON_B64 }}
+          GOOGLE_SPREADSHEET_ID:             ${{ secrets.GOOGLE_SPREADSHEET_ID }}
+          GMAIL_SENDER:                      ${{ secrets.GMAIL_SENDER }}
+          GMAIL_RECIPIENTS:                  ${{ secrets.GMAIL_RECIPIENTS }}
+          INVOICE_FOLDER_ID:                 ${{ secrets.INVOICE_FOLDER_ID }}
+          SHOPIFY_SHOP_DOMAIN:               ${{ secrets.SHOPIFY_SHOP_DOMAIN }}
+          SHOPIFY_ACCESS_TOKEN:              ${{ secrets.SHOPIFY_ACCESS_TOKEN }}
+          OPENLOGI_API_KEY:                  ${{ secrets.OPENLOGI_API_KEY }}
+          TIMEZONE:                          Asia/Tokyo
+        run: python src/monthly_payment.py

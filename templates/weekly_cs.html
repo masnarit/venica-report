@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>Venica 週次CSレビュー</title>
+<style>
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif; background:#f5f5f5; margin:0; padding:20px; color:#333; }
+  .container { max-width:720px; margin:0 auto; background:#fff; border-radius:8px; overflow:hidden; box-shadow:0 2px 8px rgba(0,0,0,0.08); }
+  .header { background:#1a1a1a; color:#fff; padding:24px 32px; }
+  .header h1 { margin:0; font-size:20px; font-weight:600; }
+  .header .date { color:#aaa; font-size:13px; margin-top:4px; }
+  .section { padding:24px 32px; border-bottom:1px solid #eee; }
+  .section-title { font-size:13px; font-weight:700; color:#999; text-transform:uppercase; letter-spacing:0.08em; margin:0 0 16px 0; }
+  .summary-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:16px; }
+  .summary-card { background:#f9f9f9; border-radius:6px; padding:16px; text-align:center; }
+  .summary-label { font-size:11px; color:#888; margin-bottom:4px; }
+  .summary-value { font-size:28px; font-weight:700; }
+  .up { color:#16a34a; } .down { color:#dc2626; } .neutral { color:#888; }
+  table { width:100%; border-collapse:collapse; font-size:13px; }
+  th { background:#f5f5f5; padding:10px 12px; text-align:left; font-weight:600; font-size:12px; color:#555; border-bottom:2px solid #e5e5e5; }
+  td { padding:10px 12px; border-bottom:1px solid #f0f0f0; vertical-align:top; }
+  .change-badge { display:inline-block; padding:1px 7px; border-radius:10px; font-size:11px; font-weight:700; }
+  .change-up   { background:#fee2e2; color:#dc2626; }
+  .change-down { background:#dcfce7; color:#16a34a; }
+  .change-flat { background:#f3f4f6; color:#6b7280; }
+  .sample { font-size:11px; color:#888; line-height:1.6; margin-top:4px; }
+  .footer { background:#f9f9f9; padding:16px 32px; font-size:11px; color:#aaa; text-align:center; }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <div class="header">
+    <h1>Venica — 週次CSレビュー</h1>
+    <div class="date">対象期間: {{ week_start }} 〜 {{ week_end }} ／ 生成: {{ generated_at }}</div>
+  </div>
+
+  <!-- サマリー -->
+  <div class="section">
+    <div class="section-title">週間サマリー</div>
+    <div class="summary-grid">
+
+      <div class="summary-card">
+        <div class="summary-label">今週の問い合わせ</div>
+        <div class="summary-value">{{ total_this }}</div>
+        <div style="font-size:12px;color:#888;margin-top:4px">件</div>
+      </div>
+
+      <div class="summary-card">
+        <div class="summary-label">前週比</div>
+        <div class="summary-value {% if total_change > 0 %}down{% elif total_change < 0 %}up{% else %}neutral{% endif %}">
+          {{ "{:+d}".format(total_change) }}
+        </div>
+        <div style="font-size:12px;color:#888;margin-top:4px">件（前週: {{ total_prev }}件）</div>
+      </div>
+
+      <div class="summary-card">
+        <div class="summary-label">カテゴリ数</div>
+        <div class="summary-value neutral">{{ comparison|length }}</div>
+        <div style="font-size:12px;color:#888;margin-top:4px">種類</div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- カテゴリ別内訳 -->
+  <div class="section">
+    <div class="section-title">カテゴリ別内訳</div>
+    <table>
+      <tr>
+        <th>カテゴリ</th>
+        <th style="text-align:right">今週</th>
+        <th style="text-align:right">前週</th>
+        <th style="text-align:center">前週比</th>
+        <th>代表的な問い合わせ</th>
+      </tr>
+      {% for row in comparison %}
+      <tr>
+        <td><strong>{{ row.category }}</strong></td>
+        <td style="text-align:right">{{ row.this_count }}</td>
+        <td style="text-align:right;color:#aaa">{{ row.prev_count }}</td>
+        <td style="text-align:center">
+          {% if row.change > 0 %}
+            <span class="change-badge change-up">+{{ row.change }}</span>
+          {% elif row.change < 0 %}
+            <span class="change-badge change-down">{{ row.change }}</span>
+          {% else %}
+            <span class="change-badge change-flat">±0</span>
+          {% endif %}
+        </td>
+        <td>
+          {% for s in row.samples %}
+          <div class="sample">・{{ s.subject }}</div>
+          {% else %}
+          <span style="color:#ccc;font-size:11px">—</span>
+          {% endfor %}
+        </td>
+      </tr>
+      {% else %}
+      <tr><td colspan="5" style="text-align:center;color:#aaa">問い合わせなし</td></tr>
+      {% endfor %}
+    </table>
+  </div>
+
+  <div class="footer">
+    Venica Report System — 自動生成 {{ generated_at }}
+  </div>
+</div>
+</body>
+</html>
