@@ -49,13 +49,19 @@ def _candidate_folder_names(year_month: str) -> list[str]:
 
 
 def _find_subfolder(svc, parent_id: str, year_month: str) -> str | None:
-    """親フォルダ内から月に対応するサブフォルダIDを返す"""
+    """親フォルダ内から月に対応するサブフォルダIDを返す（共有ドライブ対応）"""
     query = (
         f"'{parent_id}' in parents "
         f"and mimeType='application/vnd.google-apps.folder' "
         f"and trashed=false"
     )
-    result = svc.files().list(q=query, fields="files(id,name)", pageSize=50).execute()
+    result = svc.files().list(
+        q=query,
+        fields="files(id,name)",
+        pageSize=50,
+        supportsAllDrives=True,
+        includeItemsFromAllDrives=True,
+    ).execute()
     folders = result.get("files", [])
 
     candidates = set(_candidate_folder_names(year_month))
@@ -81,7 +87,13 @@ def list_invoices_in_folder(folder_id: str, year_month: str) -> list[dict]:
     query = f"'{search_folder}' in parents and mimeType='application/pdf' and trashed=false"
     result = (
         svc.files()
-        .list(q=query, fields="files(id,name,createdTime,size)", pageSize=200)
+        .list(
+            q=query,
+            fields="files(id,name,createdTime,size)",
+            pageSize=200,
+            supportsAllDrives=True,
+            includeItemsFromAllDrives=True,
+        )
         .execute()
     )
     files = result.get("files", [])
