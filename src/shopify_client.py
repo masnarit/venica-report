@@ -111,7 +111,7 @@ def get_inventory_by_sku() -> dict[str, int]:
 
     sku_inventory: dict[str, int] = {}
     for v in variants:
-        sku = v.get("sku", "").strip()
+        sku = (v.get("sku") or "").strip()
         iid = str(v.get("inventory_item_id", ""))
         if sku and iid in inv_levels:
             sku_inventory[sku] = sku_inventory.get(sku, 0) + inv_levels[iid]
