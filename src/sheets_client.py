@@ -133,6 +133,33 @@ def get_product_master() -> dict[str, dict[str, str]]:
     return master
 
 
+def get_fixed_costs() -> list[dict]:
+    """
+    固定費シートを読み込む。
+    列: item_name | category | amount | note
+    """
+    rows = read_sheet(config.SHEET_FIXED_COSTS)
+    if not rows or len(rows) < 2:
+        return []
+
+    result = []
+    for row in rows[1:]:
+        if not row or not row[0].strip():
+            continue
+        try:
+            amount_str = str(row[2] if len(row) > 2 else "0").replace(",", "").replace("¥", "").strip()
+            amount = int(float(amount_str)) if amount_str else 0
+        except ValueError:
+            amount = 0
+        result.append({
+            "item_name": row[0].strip(),
+            "category": row[1].strip() if len(row) > 1 else "その他",
+            "amount": amount,
+            "note": row[3].strip() if len(row) > 3 else "",
+        })
+    return result
+
+
 def get_cs_keywords() -> dict[str, list[str]]:
     """CS分類キーワード辞書を返す"""
     rows = read_sheet(config.SHEET_CS_KEYWORDS)

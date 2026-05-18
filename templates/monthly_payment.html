@@ -39,9 +39,13 @@
   <!-- 合計 -->
   <div class="section">
     <div class="total-card">
-      <div class="total-label">{{ year_month }} 支払合計</div>
+      <div class="total-label">{{ year_month }} キャッシュアウト合計</div>
       <div class="total-value">¥{{ "{:,}".format(total_amount) }}</div>
-      <div class="total-sub">請求書 {{ invoice_count }}件処理（PDF {{ pdf_count }}件中）{% if error_count > 0 %}／ ⚠ 解析失敗 {{ error_count }}件{% endif %}</div>
+      <div class="total-sub">
+        請求書合計 ¥{{ "{:,}".format(invoice_total) }}（{{ invoice_count }}件）
+        ＋ 固定費合計 ¥{{ "{:,}".format(fixed_total) }}（{{ fixed_costs|length }}件）
+        {% if error_count > 0 %}／ ⚠ 解析失敗 {{ error_count }}件{% endif %}
+      </div>
     </div>
   </div>
 
@@ -76,6 +80,34 @@
       {% endfor %}
     </table>
   </div>
+
+  <!-- 固定費一覧 -->
+  {% if fixed_costs %}
+  <div class="section">
+    <div class="section-title">固定費一覧</div>
+    <table>
+      <tr>
+        <th>項目</th>
+        <th>費目</th>
+        <th class="amount">金額</th>
+        <th>備考</th>
+      </tr>
+      {% for f in fixed_costs %}
+      <tr>
+        <td>{{ f.item_name }}</td>
+        <td><span class="tax-badge">{{ f.category }}</span></td>
+        <td class="amount">¥{{ "{:,}".format(f.amount) }}</td>
+        <td style="color:#888;font-size:12px">{{ f.note }}</td>
+      </tr>
+      {% endfor %}
+      <tr style="font-weight:600;background:#fafafa">
+        <td colspan="2">固定費 小計</td>
+        <td class="amount">¥{{ "{:,}".format(fixed_total) }}</td>
+        <td></td>
+      </tr>
+    </table>
+  </div>
+  {% endif %}
 
   <!-- 解析エラー -->
   {% if errors %}

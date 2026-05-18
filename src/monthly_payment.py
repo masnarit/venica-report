@@ -64,7 +64,11 @@ def run() -> None:
             logger.warning("PDF解析失敗 %s: %s", f["name"], e)
             errors.append({"file_name": f["name"], "error": str(e)})
 
-    # カテゴリ別集計
+    # 固定費取得
+    fixed_costs = sheets_client.get_fixed_costs()
+    fixed_total = sum(f["amount"] for f in fixed_costs)
+
+    # カテゴリ別集計（PDF請求書）
     category_totals: dict[str, int] = {}
     category_items: dict[str, list[dict]] = {}
 
@@ -76,7 +80,8 @@ def run() -> None:
             category_items[cat] = []
         category_items[cat].append(inv)
 
-    total_amount = sum(category_totals.values())
+    invoice_total = sum(category_totals.values())
+    total_amount = invoice_total + fixed_total
 
     # カテゴリを定義順でソート
     category_order = list(drive_client.EXPENSE_CATEGORIES.keys())
@@ -93,6 +98,9 @@ def run() -> None:
         year_month=year_month,
         generated_at=now.strftime("%Y-%m-%d %H:%M"),
         total_amount=total_amount,
+        invoice_total=invoice_total,
+        fixed_total=fixed_total,
+        fixed_costs=fixed_costs,
         pdf_count=len(pdf_files),
         invoice_count=len(invoices),
         error_count=len(errors),

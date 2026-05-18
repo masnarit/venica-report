@@ -27,28 +27,48 @@ def _build_service():
     return build("drive", "v3", credentials=creds)
 
 
+def _find_subfolder(svc, parent_id: str, name: str) -> str | None:
+    """親フォルダ内から指定名のサブフォルダIDを返す"""
+    query = (
+        f"'{parent_id}' in parents "
+        f"and mimeType='application/vnd.google-apps.folder' "
+        f"and name='{name}' "
+        f"and trashed=false"
+    )
+    result = svc.files().list(q=query, fields="files(id,name)", pageSize=10).execute()
+    files = result.get("files", [])
+    return files[0]["id"] if files else None
+
+
 def list_invoices_in_folder(folder_id: str, year_month: str) -> list[dict]:
     """
-    指定フォルダ内のPDFファイル一覧を返す。
-    year_month: YYYY-MM形式（ファイル名絞り込みに使用）
+    月別サブフォルダ（YYYY-MM/）内のPDFファイル一覧を返す。
+    サブフォルダが見つからない場合は親フォルダ直下から月名絞り込みで取得。
     """
     svc = _build_service()
-    query = f"'{folder_id}' in parents and mimeType='application/pdf' and trashed=false"
+
+    # 月別サブフォルダを検索
+    target_folder = _find_subfolder(svc, folder_id, year_month)
+    search_folder = target_folder or folder_id
+
+    query = f"'{search_folder}' in parents and mimeType='application/pdf' and trashed=false"
     result = (
         svc.files()
-        .list(q=query, fields="files(id,name,createdTime,size)", pageSize=100)
+        .list(q=query, fields="files(id,name,createdTime,size)", pageSize=200)
         .execute()
     )
     files = result.get("files", [])
 
-    # 対象月のファイルに絞り込み（ファイル名にYYYY-MMが含まれる場合）
-    filtered = [
-        f for f in files
-        if year_month.replace("-", "") in f["name"].replace("-", "").replace("/", "")
-        or year_month in f["name"]
-    ]
+    # サブフォルダなし＆親フォルダ検索の場合はファイル名で絞り込み
+    if not target_folder:
+        ym_compact = year_month.replace("-", "")
+        filtered = [
+            f for f in files
+            if year_month in f["name"] or ym_compact in f["name"].replace("-", "")
+        ]
+        return filtered if filtered else files
 
-    return filtered if filtered else files
+    return files
 
 
 def download_pdf(file_id: str) -> bytes:
