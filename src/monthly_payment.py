@@ -32,10 +32,8 @@ INVOICE_FOLDER_ID = os.getenv("INVOICE_FOLDER_ID", "")
 
 def run() -> None:
     now = datetime.now(TZ)
-    # 先月を集計対象にする
-    first_of_this_month = now.replace(day=1)
-    last_month = first_of_this_month - timedelta(days=1)
-    year_month = last_month.strftime("%Y-%m")
+    # 当月を集計対象にする
+    year_month = now.strftime("%Y-%m")
 
     logger.info("=== 月次支払集計開始: %s ===", year_month)
 
