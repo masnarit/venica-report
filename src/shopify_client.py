@@ -30,7 +30,7 @@ def _get(endpoint: str, params: dict | None = None) -> dict:
 
 def _paginate(endpoint: str, key: str, params: dict | None = None) -> list[dict]:
     """Link headerを使ってページネーション対応で全件取得"""
-    results: list[dict] = {}
+    results: list[dict] = []
     url = f"{BASE_URL}/{endpoint}"
     p = dict(params or {})
     p.setdefault("limit", 250)
