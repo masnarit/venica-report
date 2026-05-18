@@ -27,27 +27,51 @@ def _build_service():
     return build("drive", "v3", credentials=creds)
 
 
-def _find_subfolder(svc, parent_id: str, name: str) -> str | None:
-    """親フォルダ内から指定名のサブフォルダIDを返す"""
+def _candidate_folder_names(year_month: str) -> list[str]:
+    """YYYY-MM から考えられるフォルダ名のパターン一覧を返す"""
+    try:
+        dt = datetime.strptime(year_month, "%Y-%m")
+    except ValueError:
+        return [year_month]
+
+    yy = dt.strftime("%y")   # "26"
+    mm = str(dt.month)       # "5" (ゼロなし)
+    mm0 = dt.strftime("%m")  # "05" (ゼロあり)
+
+    return [
+        year_month,                      # 2026-05
+        f"{yy}年{mm}月払い",              # 26年5月払い
+        f"{yy}年{mm0}月払い",             # 26年05月払い
+        f"{dt.year}年{mm}月払い",         # 2026年5月払い
+        f"{dt.year}年{mm}月",            # 2026年5月
+        f"{yy}{mm0}",                    # 2605
+    ]
+
+
+def _find_subfolder(svc, parent_id: str, year_month: str) -> str | None:
+    """親フォルダ内から月に対応するサブフォルダIDを返す"""
     query = (
         f"'{parent_id}' in parents "
         f"and mimeType='application/vnd.google-apps.folder' "
-        f"and name='{name}' "
         f"and trashed=false"
     )
-    result = svc.files().list(q=query, fields="files(id,name)", pageSize=10).execute()
-    files = result.get("files", [])
-    return files[0]["id"] if files else None
+    result = svc.files().list(q=query, fields="files(id,name)", pageSize=50).execute()
+    folders = result.get("files", [])
+
+    candidates = set(_candidate_folder_names(year_month))
+    for f in folders:
+        if f["name"] in candidates:
+            return f["id"]
+    return None
 
 
 def list_invoices_in_folder(folder_id: str, year_month: str) -> list[dict]:
     """
-    月別サブフォルダ（YYYY-MM/）内のPDFファイル一覧を返す。
-    サブフォルダが見つからない場合は親フォルダ直下から月名絞り込みで取得。
+    月別サブフォルダ内のPDFファイル一覧を返す。
+    「26年5月払い」「2026-05」など複数の命名形式に対応。
     """
     svc = _build_service()
 
-    # 月別サブフォルダを検索
     target_folder = _find_subfolder(svc, folder_id, year_month)
     search_folder = target_folder or folder_id
 
@@ -59,7 +83,6 @@ def list_invoices_in_folder(folder_id: str, year_month: str) -> list[dict]:
     )
     files = result.get("files", [])
 
-    # サブフォルダなし＆親フォルダ検索の場合はファイル名で絞り込み
     if not target_folder:
         ym_compact = year_month.replace("-", "")
         filtered = [
