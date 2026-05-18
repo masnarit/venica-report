@@ -59,8 +59,11 @@ def _find_subfolder(svc, parent_id: str, year_month: str) -> str | None:
     folders = result.get("files", [])
 
     candidates = set(_candidate_folder_names(year_month))
+    logger.info("サブフォルダ検索: 候補名=%s", candidates)
+    logger.info("サブフォルダ一覧: %s", [f["name"] for f in folders])
     for f in folders:
         if f["name"] in candidates:
+            logger.info("サブフォルダ一致: %s", f["name"])
             return f["id"]
     return None
 
