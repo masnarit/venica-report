@@ -50,7 +50,7 @@ def get_service_account_path() -> str:
     """
     b64 = os.getenv("GOOGLE_SERVICE_ACCOUNT_JSON_B64")
     if b64:
-        decoded = base64.b64decode(b64)
+        decoded = base64.b64decode(b64 + "==")
         tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".json", mode="wb")
         tmp.write(decoded)
         tmp.close()
