@@ -104,7 +104,8 @@ def get_sales_target(year_month: str) -> int:
     for row in rows[1:]:
         if len(row) >= 2 and row[0].strip() == year_month:
             try:
-                return int(str(row[1]).replace(",", ""))
+                val = str(row[1]).replace(",", "").replace("¥", "").replace("$", "").strip()
+                return int(float(val))
             except ValueError:
                 return 0
     return 0
