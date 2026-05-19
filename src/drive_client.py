@@ -173,6 +173,7 @@ def classify_expense(text: str) -> str:
 
 
 def parse_invoice(text: str, file_name: str = "") -> dict:
+    logger.info("抽出テキスト冒頭[%s]: %s", file_name[:30], repr(text[:300]))
     """
     請求書テキストから必要情報を抽出する。
 
