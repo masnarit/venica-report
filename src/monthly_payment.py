@@ -57,6 +57,15 @@ def run() -> None:
             pdf_bytes = drive_client.download_pdf(f["id"])
             text = drive_client.extract_text_from_pdf(pdf_bytes)
             invoice = drive_client.parse_invoice(text, f["name"])
+            logger.info(
+                "解析結果: file=%s vendor=%s amount=%s category=%s tax=%s due=%s",
+                f["name"],
+                invoice.get("vendor", ""),
+                f"{invoice.get('amount', 0):,}",
+                invoice.get("category", ""),
+                invoice.get("tax_type", ""),
+                invoice.get("due_date", ""),
+            )
             invoices.append(invoice)
         except Exception as e:
             logger.warning("PDF解析失敗 %s: %s", f["name"], e)

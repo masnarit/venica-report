@@ -218,42 +218,32 @@ def _extract_amount(text: str) -> int:
     compact = re.sub(r"[ \t]+", " ", normalized)
 
     amount_number = r"(?:¥\s*)?(\d{1,3}(?:,\d{3})+|\d{4,10})(?:\s*円)?"
-    labels = [
-        "ご請求金額",
-        "御請求金額",
-        "請求金額",
-        "今回ご請求額",
-        "ご請求額",
-        "請求額",
-        "お支払金額",
-        "お振込金額",
-        "振込金額",
-        "支払金額",
-        "支払額",
-        "税込合計",
-        "合計金額",
-        "総合計",
-        "合計（税込）",
-        "合計",
+    label_groups = [
+        ["ご請求金額", "御請求金額", "今回ご請求額", "請求金額"],
+        ["お支払金額", "お振込金額", "振込金額", "支払金額"],
+        ["税込合計", "合計（税込）", "合計(税込)", "総合計", "合計金額"],
+        ["ご請求額", "請求額", "支払額"],
+        ["合計"],
     ]
-    label_re = "|".join(re.escape(label) for label in labels)
 
-    prioritized: list[int] = []
+    # ラベル優先度順に探す。税抜小計や明細単価を拾いにくくするため、最初に見つかった
+    # 高優先ラベル群の金額だけを採用する。
+    for labels in label_groups:
+        label_re = "|".join(re.escape(label) for label in labels)
+        prioritized: list[int] = []
 
-    # ラベルの後ろに金額があるパターン
-    for m in re.finditer(rf"(?:{label_re})[^\d¥]{{0,40}}{amount_number}", compact, re.IGNORECASE):
-        amount = _amount_to_int(m.group(1))
-        if amount:
-            prioritized.append(amount)
+        for m in re.finditer(rf"(?:{label_re})[^\d¥]{{0,50}}{amount_number}", compact, re.IGNORECASE):
+            amount = _amount_to_int(m.group(1))
+            if amount:
+                prioritized.append(amount)
 
-    # 金額の後ろにラベルがあるパターン
-    for m in re.finditer(rf"{amount_number}[^\d]{{0,20}}(?:{label_re})", compact, re.IGNORECASE):
-        amount = _amount_to_int(m.group(1))
-        if amount:
-            prioritized.append(amount)
+        for m in re.finditer(rf"{amount_number}[^\d\n]{{0,25}}(?:{label_re})", compact, re.IGNORECASE):
+            amount = _amount_to_int(m.group(1))
+            if amount:
+                prioritized.append(amount)
 
-    if prioritized:
-        return max(prioritized)
+        if prioritized:
+            return max(prioritized)
 
     candidates: list[int] = []
 
