@@ -172,6 +172,124 @@ def classify_expense(text: str) -> str:
     return "その他"
 
 
+def _normalize_text(text: str) -> str:
+    """PDF抽出テキストの表記ゆれを最低限ならす。"""
+    return (
+        text.replace("\u3000", " ")
+        .replace("，", ",")
+        .replace("．", ".")
+        .replace("￥", "¥")
+        .replace("−", "-")
+        .replace("ー", "-")
+        .replace("―", "-")
+    )
+
+
+def _amount_to_int(value: str) -> int | None:
+    """金額文字列を整数に変換する。日付や小さい数字は除外する。"""
+    cleaned = (
+        value.replace(",", "")
+        .replace("¥", "")
+        .replace("円", "")
+        .replace("税込", "")
+        .replace("税抜", "")
+        .replace("-", "")
+        .strip()
+    )
+    if not cleaned or not re.fullmatch(r"\d+", cleaned):
+        return None
+
+    amount = int(cleaned)
+    # 日付・税率・個数などの誤検知を避けるため、請求書金額として小さすぎる値は除外。
+    if amount < 1000:
+        return None
+    return amount
+
+
+def _extract_amount(text: str) -> int:
+    """
+    請求書金額を抽出する。
+    優先順位:
+      1. 「請求金額」「お支払金額」「合計（税込）」などのラベル近辺
+      2. 「円」または「¥」付きの金額
+      3. カンマ付きの大きな数字
+    """
+    normalized = _normalize_text(text)
+    compact = re.sub(r"[ \t]+", " ", normalized)
+
+    amount_number = r"(?:¥\s*)?(\d{1,3}(?:,\d{3})+|\d{4,10})(?:\s*円)?"
+    labels = [
+        "ご請求金額",
+        "御請求金額",
+        "請求金額",
+        "今回ご請求額",
+        "ご請求額",
+        "請求額",
+        "お支払金額",
+        "お振込金額",
+        "振込金額",
+        "支払金額",
+        "支払額",
+        "税込合計",
+        "合計金額",
+        "総合計",
+        "合計（税込）",
+        "合計",
+    ]
+    label_re = "|".join(re.escape(label) for label in labels)
+
+    prioritized: list[int] = []
+
+    # ラベルの後ろに金額があるパターン
+    for m in re.finditer(rf"(?:{label_re})[^\d¥]{{0,40}}{amount_number}", compact, re.IGNORECASE):
+        amount = _amount_to_int(m.group(1))
+        if amount:
+            prioritized.append(amount)
+
+    # 金額の後ろにラベルがあるパターン
+    for m in re.finditer(rf"{amount_number}[^\d]{{0,20}}(?:{label_re})", compact, re.IGNORECASE):
+        amount = _amount_to_int(m.group(1))
+        if amount:
+            prioritized.append(amount)
+
+    if prioritized:
+        return max(prioritized)
+
+    candidates: list[int] = []
+
+    # 「円」または「¥」付き金額を広く拾う。
+    for m in re.finditer(r"(?:¥\s*)?(\d{1,3}(?:,\d{3})+|\d{4,10})\s*円|¥\s*(\d{1,3}(?:,\d{3})+|\d{4,10})", compact):
+        amount = _amount_to_int(m.group(1) or m.group(2) or "")
+        if amount:
+            candidates.append(amount)
+
+    # 最後の保険として、カンマ付きの数字を拾う。
+    for m in re.finditer(r"\b(\d{1,3}(?:,\d{3})+)\b", compact):
+        amount = _amount_to_int(m.group(1))
+        if amount:
+            candidates.append(amount)
+
+    return max(candidates) if candidates else 0
+
+
+def _extract_vendor(text: str, file_name: str) -> str:
+    """請求元・支払先らしい社名を抽出する。取れない場合はファイル名を使う。"""
+    lines = [l.strip() for l in _normalize_text(text).split("\n") if l.strip()]
+
+    skip_words = ["御中", "様", "請求書", "納品書", "領収書", "見積書", "VENICA", "Venica"]
+    company_words = ["株式会社", "合同会社", "有限会社", "Inc.", "CO.,LTD", "Co., Ltd", "LLC"]
+
+    for line in lines[:30]:
+        if any(word in line for word in company_words) and not any(word in line for word in skip_words):
+            return line[:50]
+
+    for line in lines[:30]:
+        if any(word in line for word in company_words):
+            return line[:50]
+
+    return file_name
+
+
 def parse_invoice(text: str, file_name: str = "") -> dict:
     logger.info("抽出テキスト冒頭[%s]: %s", file_name[:30], repr(text[:300]))
     """
@@ -187,28 +305,27 @@ def parse_invoice(text: str, file_name: str = "") -> dict:
             "raw_text": テキスト全文（確認用）
         }
     """
+    normalized_text = _normalize_text(text)
     result = {
         "vendor": "",
         "amount": 0,
         "tax_type": "不明",
         "due_date": "",
-        "category": classify_expense(text + " " + file_name),
-        "raw_text": text[:500],
+        "category": classify_expense(normalized_text + " " + file_name),
+        "raw_text": normalized_text[:500],
         "file_name": file_name,
     }
 
-    # 金額抽出（最大の数字を合計金額とみなす）
-    amounts = re.findall(r"[¥￥]?\s*([\d,]+)\s*円", text)
-    if amounts:
-        nums = [int(a.replace(",", "")) for a in amounts]
-        result["amount"] = max(nums)
+    result["amount"] = _extract_amount(normalized_text)
+    if result["amount"] == 0:
+        logger.warning("金額抽出失敗: %s", file_name)
 
     # 税区分
-    if "10%" in text or "消費税10" in text:
+    if "10%" in normalized_text or "消費税10" in normalized_text:
         result["tax_type"] = "課税10%"
-    elif "8%" in text or "軽減税率" in text:
+    elif "8%" in normalized_text or "軽減税率" in normalized_text:
         result["tax_type"] = "軽減8%"
-    elif "非課税" in text or "免税" in text:
+    elif "非課税" in normalized_text or "免税" in normalized_text:
         result["tax_type"] = "非課税"
 
     # 支払期限
@@ -218,16 +335,11 @@ def parse_invoice(text: str, file_name: str = "") -> dict:
         r"(\d{4}年\d{1,2}月\d{1,2}日).*?まで",
     ]
     for pattern in due_patterns:
-        m = re.search(pattern, text)
+        m = re.search(pattern, normalized_text)
         if m:
             result["due_date"] = m.group(1)
             break
 
-    # 請求元（宛先の上に書いてある社名を推定）
-    lines = [l.strip() for l in text.split("\n") if l.strip()]
-    for i, line in enumerate(lines[:20]):
-        if "株式会社" in line or "合同会社" in line or "有限会社" in line:
-            result["vendor"] = line[:50]
-            break
+    result["vendor"] = _extract_vendor(normalized_text, file_name)
 
     return result
