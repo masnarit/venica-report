@@ -160,6 +160,48 @@ def get_fixed_costs() -> list[dict]:
     return result
 
 
+def get_invoice_overrides() -> list[dict]:
+    """
+    請求書PDFの自動解析結果を上書きする。
+    列: match_text | vendor | amount | category | tax_type | due_date | note
+
+    match_text はファイル名または抽出された支払先に含まれる文字列。
+    PDF解析が外しやすい請求書だけここに登録する。
+    """
+    try:
+        rows = read_sheet(config.SHEET_INVOICE_OVERRIDES)
+    except Exception as e:
+        logger.warning("invoice_overridesシート読み込み失敗（無視して継続）: %s", e)
+        return []
+
+    if not rows or len(rows) < 2:
+        return []
+
+    result = []
+    for row in rows[1:]:
+        if not row or not row[0].strip():
+            continue
+
+        amount = None
+        if len(row) > 2 and row[2]:
+            try:
+                amount_str = str(row[2]).replace(",", "").replace("¥", "").strip()
+                amount = int(float(amount_str))
+            except ValueError:
+                amount = None
+
+        result.append({
+            "match_text": row[0].strip(),
+            "vendor": row[1].strip() if len(row) > 1 else "",
+            "amount": amount,
+            "category": row[3].strip() if len(row) > 3 else "",
+            "tax_type": row[4].strip() if len(row) > 4 else "",
+            "due_date": row[5].strip() if len(row) > 5 else "",
+            "note": row[6].strip() if len(row) > 6 else "",
+        })
+    return result
+
+
 def get_cs_keywords() -> dict[str, list[str]]:
     """CS分類キーワード辞書を返す"""
     rows = read_sheet(config.SHEET_CS_KEYWORDS)

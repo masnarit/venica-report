@@ -262,6 +262,29 @@ def _extract_amount(text: str) -> int:
     return max(candidates) if candidates else 0
 
 
+def _looks_tax_exclusive_amount(text: str, amount: int) -> bool:
+    """抽出した金額が税抜額らしいかを判定する。"""
+    if amount <= 0:
+        return False
+
+    normalized = _normalize_text(text)
+    amount_patterns = {
+        f"{amount:,}",
+        str(amount),
+    }
+    tax_exclusive_words = ["税抜", "税別", "小計", "本体価格"]
+    tax_inclusive_words = ["税込", "ご請求金額", "請求金額", "お支払金額", "支払金額", "総合計"]
+
+    for line in normalized.splitlines():
+        if not any(pattern in line for pattern in amount_patterns):
+            continue
+        if any(word in line for word in tax_inclusive_words):
+            return False
+        if any(word in line for word in tax_exclusive_words):
+            return True
+    return False
+
+
 def _extract_vendor(text: str, file_name: str) -> str:
     """請求元・支払先らしい社名を抽出する。取れない場合はファイル名を使う。"""
     lines = [l.strip() for l in _normalize_text(text).split("\n") if l.strip()]
@@ -317,6 +340,11 @@ def parse_invoice(text: str, file_name: str = "") -> dict:
         result["tax_type"] = "軽減8%"
     elif "非課税" in normalized_text or "免税" in normalized_text:
         result["tax_type"] = "非課税"
+
+    if result["tax_type"] == "課税10%" and _looks_tax_exclusive_amount(normalized_text, result["amount"]):
+        before = result["amount"]
+        result["amount"] = int(round(result["amount"] * 1.1))
+        logger.info("税抜額を税込補正: %s %s -> %s", file_name, before, result["amount"])
 
     # 支払期限
     due_patterns = [

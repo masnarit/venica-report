@@ -30,6 +30,30 @@ TEMPLATE_DIR = Path(__file__).parent.parent / "templates"
 INVOICE_FOLDER_ID = os.getenv("INVOICE_FOLDER_ID", "")
 
 
+def apply_invoice_overrides(invoice: dict, overrides: list[dict]) -> dict:
+    """Sheetsのinvoice_overridesでPDF解析結果を上書きする。"""
+    haystack = f"{invoice.get('file_name', '')} {invoice.get('vendor', '')}".lower()
+    for override in overrides:
+        match_text = override.get("match_text", "").lower()
+        if not match_text or match_text not in haystack:
+            continue
+
+        if override.get("vendor"):
+            invoice["vendor"] = override["vendor"]
+        if override.get("amount") is not None:
+            invoice["amount"] = override["amount"]
+        if override.get("category"):
+            invoice["category"] = override["category"]
+        if override.get("tax_type"):
+            invoice["tax_type"] = override["tax_type"]
+        if override.get("due_date"):
+            invoice["due_date"] = override["due_date"]
+        invoice["override_note"] = override.get("note", "")
+        logger.info("上書き適用: file=%s match=%s", invoice.get("file_name", ""), override["match_text"])
+        break
+    return invoice
+
+
 def run() -> None:
     now = datetime.now(TZ)
     # 当月を集計対象にする
@@ -50,6 +74,8 @@ def run() -> None:
     # 各PDFを解析
     invoices: list[dict] = []
     errors: list[dict] = []
+    overrides = sheets_client.get_invoice_overrides()
+    logger.info("請求書上書き設定: %d件", len(overrides))
 
     for f in pdf_files:
         try:
@@ -57,6 +83,7 @@ def run() -> None:
             pdf_bytes = drive_client.download_pdf(f["id"])
             text = drive_client.extract_text_from_pdf(pdf_bytes)
             invoice = drive_client.parse_invoice(text, f["name"])
+            invoice = apply_invoice_overrides(invoice, overrides)
             logger.info(
                 "解析結果: file=%s vendor=%s amount=%s category=%s tax=%s due=%s",
                 f["name"],
